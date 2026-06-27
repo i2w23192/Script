@@ -1,188 +1,227 @@
---// SERVICES
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
---// STATE
+-- STATES
 local toggles = {
-    ESP = false,
-    Boxes = false,
-    Tracers = false,
-    Names = false,
+    Outlines = false,
+    Username = false,
     Distance = false,
-    HP = false
+    HP = false,
+    Team = false
 }
 
-local espObjects = {}
+local activeHighlights = {}
+local activeBillboards = {}
 
---// UI
-local gui = Instance.new("ScreenGui")
-gui.Name = "TitaniumESP"
-gui.ResetOnSpawn = false
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- UI SETUP
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TitaniumTrackerUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 260, 0, 220)
-frame.Position = UDim2.new(0.5, -130, 0.5, -110)
-frame.BackgroundColor3 = Color3.fromRGB(20,20,25)
-frame.Active = true
-frame.Draggable = true
-frame.Parent = gui
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
 
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0,10)
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
---// HELPERS
-local function getColor(plr)
-    return plr.TeamColor and plr.TeamColor.Color or Color3.fromRGB(255,255,255)
-end
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 0, 45)
+Title.BackgroundTransparency = 1
+Title.Text = "TITANIUM"
+Title.TextColor3 = Color3.fromRGB(240,240,245)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
 
-local function createDrawing()
-    local box = Drawing.new("Square")
-    box.Visible = false
-    box.Thickness = 1
-    box.Filled = false
+Instance.new("UIPadding", Title).PaddingLeft = UDim.new(0, 16)
 
-    local line = Drawing.new("Line")
-    line.Visible = false
-    line.Thickness = 1
+local Container = Instance.new("Frame")
+Container.Size = UDim2.new(1, -32, 1, -55)
+Container.Position = UDim2.new(0, 16, 0, 45)
+Container.BackgroundTransparency = 1
+Container.Parent = MainFrame
 
-    local text = Drawing.new("Text")
-    text.Visible = false
-    text.Size = 13
-    text.Center = true
-    text.Outline = true
+local layout = Instance.new("UIListLayout", Container)
+layout.Padding = UDim.new(0, 8)
 
-    return {
-        Box = box,
-        Line = line,
-        Text = text
-    }
-end
+-- TOGGLES FUNCTION
+local function createModernToggle(labelName, orderIndex, stateKey, callback)
 
---// PLAYER SETUP
-local function setupPlayer(plr)
-    if plr == LocalPlayer then return end
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 34)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = orderIndex
+    row.Parent = Container
 
-    espObjects[plr] = createDrawing()
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = labelName
+    textLabel.TextColor3 = Color3.fromRGB(160,160,170)
+    textLabel.Font = Enum.Font.GothamSemibold
+    textLabel.TextSize = 13
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.Parent = row
 
-    plr.CharacterAdded:Connect(function()
-        task.wait(0.5)
+    local track = Instance.new("TextButton")
+    track.Size = UDim2.new(0, 44, 0, 22)
+    track.Position = UDim2.new(1, -44, 0.5, -11)
+    track.BackgroundColor3 = Color3.fromRGB(35,35,42)
+    track.Text = ""
+    track.Parent = row
+
+    Instance.new("UICorner", track).CornerRadius = UDim.new(1,0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 16, 0, 16)
+    knob.Position = UDim2.new(0, 3, 0.5, -8)
+    knob.BackgroundColor3 = Color3.fromRGB(200,200,205)
+    knob.Parent = track
+
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
+
+    track.MouseButton1Click:Connect(function()
+        toggles[stateKey] = not toggles[stateKey]
+        local active = toggles[stateKey]
+
+        TweenService:Create(track, TweenInfo.new(0.2), {
+            BackgroundColor3 = active and Color3.fromRGB(45,185,105) or Color3.fromRGB(35,35,42)
+        }):Play()
+
+        TweenService:Create(knob, TweenInfo.new(0.2), {
+            Position = active and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8),
+            BackgroundColor3 = active and Color3.fromRGB(255,255,255) or Color3.fromRGB(200,200,205)
+        }):Play()
+
+        callback()
     end)
 end
 
-for _,p in ipairs(Players:GetPlayers()) do
-    setupPlayer(p)
+-- HELPERS
+local function getTeamColor(player)
+    return (player.TeamColor and player.TeamColor.Color) or Color3.new(1,1,1)
 end
 
-Players.PlayerAdded:Connect(setupPlayer)
+local function applyHighlight(character, player)
+    if player == LocalPlayer or not toggles.Outlines then return end
+    if character:FindFirstChild("ModernVisualTracker") then return end
 
---// MAIN RENDER LOOP (SMOOTH, NOT HEARTBEAT SPAM)
-RunService.RenderStepped:Connect(function()
+    local h = Instance.new("Highlight")
+    h.Name = "ModernVisualTracker"
+    h.FillColor = getTeamColor(player)
+    h.OutlineColor = getTeamColor(player)
+    h.Parent = character
 
-    if not toggles.ESP then
-        for _,v in pairs(espObjects) do
-            v.Box.Visible = false
-            v.Line.Visible = false
-            v.Text.Visible = false
-        end
-        return
+    activeHighlights[player] = h
+end
+
+local function applyBillboard(character, player)
+    if player == LocalPlayer then return end
+
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+    if head:FindFirstChild("ModernInfoTag") then return end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "ModernInfoTag"
+    bb.Size = UDim2.new(0,200,0,75)
+    bb.AlwaysOnTop = true
+    bb.Parent = head
+
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1,0,1,0)
+    txt.BackgroundTransparency = 1
+    txt.TextColor3 = getTeamColor(player)
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 12
+    txt.Parent = bb
+
+    activeBillboards[player] = txt
+end
+
+-- FIXED PLAYER SYSTEM
+local function setupCharacter(player, character)
+    task.wait(0.2)
+    applyHighlight(character, player)
+    applyBillboard(character, player)
+end
+
+local function evaluatePlayer(player)
+
+    if player.Character then
+        task.spawn(function()
+            setupCharacter(player, player.Character)
+        end)
     end
 
-    for plr, esp in pairs(espObjects) do
-        local char = plr.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
+    player.CharacterAdded:Connect(function(char)
+        task.spawn(function()
+            setupCharacter(player, char)
+        end)
+    end)
+end
 
-        if hrp and hum then
+task.spawn(function()
+    repeat task.wait() until #Players:GetPlayers() > 0
+    for _, p in ipairs(Players:GetPlayers()) do
+        evaluatePlayer(p)
+    end
+end)
 
-            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+Players.PlayerAdded:Connect(evaluatePlayer)
 
-            if onScreen then
+-- HEARTBEAT (FIXED NIL SAFE)
+RunService.Heartbeat:Connect(function()
 
-                local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+    local lpChar = LocalPlayer.Character
+    local lpRoot = lpChar and lpChar:FindFirstChild("HumanoidRootPart")
+    if not lpRoot then return end
 
-                local size = math.clamp(2000 / dist, 20, 120)
+    for player, label in pairs(activeBillboards) do
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
 
-                local color = getColor(plr)
+        if label and label.Parent and root then
 
-                -- BOX
-                if toggles.Boxes then
-                    esp.Box.Visible = true
-                    esp.Box.Size = Vector2.new(size, size * 1.5)
-                    esp.Box.Position = Vector2.new(pos.X - size/2, pos.Y - size/2)
-                    esp.Box.Color = color
-                else
-                    esp.Box.Visible = false
-                end
+            local lines = {}
 
-                -- TRACER
-                if toggles.Tracers then
-                    esp.Line.Visible = true
-                    esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                    esp.Line.To = Vector2.new(pos.X, pos.Y)
-                    esp.Line.Color = color
-                else
-                    esp.Line.Visible = false
-                end
+            if toggles.Username then table.insert(lines, player.Name) end
+            if toggles.Team then table.insert(lines, player.Team and player.Team.Name or "None") end
 
-                -- TEXT
-                local textLines = {}
-
-                if toggles.Names then
-                    table.insert(textLines, plr.Name)
-                end
-
-                if toggles.Distance then
-                    table.insert(textLines, math.floor(dist) .. "m")
-                end
-
-                if toggles.HP then
-                    table.insert(textLines, math.floor(hum.Health) .. " HP")
-                end
-
-                if #textLines > 0 then
-                    esp.Text.Visible = true
-                    esp.Text.Position = Vector2.new(pos.X, pos.Y - size/2 - 15)
-                    esp.Text.Color = color
-                    esp.Text.Text = table.concat(textLines, " | ")
-                else
-                    esp.Text.Visible = false
-                end
-
-            else
-                esp.Box.Visible = false
-                esp.Line.Visible = false
-                esp.Text.Visible = false
+            if toggles.Distance then
+                table.insert(lines, math.floor((root.Position - lpRoot.Position).Magnitude) .. " studs")
             end
-        else
-            esp.Box.Visible = false
-            esp.Line.Visible = false
-            esp.Text.Visible = false
+
+            if toggles.HP then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                table.insert(lines, "HP: " .. (hum and math.floor(hum.Health) or 0))
+            end
+
+            label.Text = table.concat(lines, "\n")
+            label.TextColor3 = getTeamColor(player)
         end
     end
 end)
 
---// SIMPLE TOGGLES (NO UI STRESS)
-local function toggleButton(name, key, y)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -20, 0, 28)
-    b.Position = UDim2.new(0,10,0,y)
-    b.Text = name
-    b.BackgroundColor3 = Color3.fromRGB(35,35,40)
-    b.TextColor3 = Color3.fromRGB(255,255,255)
-    b.Parent = frame
+-- TOGGLES
+createModernToggle("Show Outlines", 1, "Outlines", function()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then applyHighlight(p.Character, p) end
+    end
+end)
 
-    b.MouseButton1Click:Connect(function()
-        toggles[key] = not toggles[key]
-        b.BackgroundColor3 = toggles[key] and Color3.fromRGB(0,170,80) or Color3.fromRGB(35,35,40)
-    end)
-end
-
-toggleButton("ESP", "ESP", 10)
-toggleButton("Boxes", "Boxes", 45)
-toggleButton("Tracers", "Tracers", 80)
-toggleButton("Names", "Names", 115)
-toggleButton("Distance", "Distance", 150)
-toggleButton("HP", "HP", 185)
+createModernToggle("Track Username", 2, "Username", function() end)
+createModernToggle("Track Team", 3, "Team", function() end)
+createModernToggle("Track Distance", 4, "Distance", function() end)
+createModernToggle("Track Health (HP)", 5, "HP", function() end)
