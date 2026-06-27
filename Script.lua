@@ -19,7 +19,7 @@ local isCollapsed = false -- Tracks collapse state
 
 -- UI SETUP
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TitaniumTrackerUI"
+ScreenGui.Name = "LAK101TrackerUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -39,7 +39,7 @@ Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 0, 45)
 Title.BackgroundTransparency = 1
-Title.Text = "TITANIUM"
+Title.Text = "LAK101"
 Title.TextColor3 = Color3.fromRGB(240,240,245)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
