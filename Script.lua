@@ -15,6 +15,7 @@ local toggles = {
 
 local activeHighlights = {}
 local activeBillboards = {}
+local isCollapsed = false -- Tracks collapse state
 
 -- UI SETUP
 local ScreenGui = Instance.new("ScreenGui")
@@ -30,6 +31,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true -- Prevents elements overflowing when closed
 MainFrame.Parent = ScreenGui
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
@@ -46,6 +48,17 @@ Title.Parent = MainFrame
 
 Instance.new("UIPadding", Title).PaddingLeft = UDim.new(0, 16)
 
+-- COLLAPSE BUTTON
+local CollapseBtn = Instance.new("TextButton")
+CollapseBtn.Size = UDim2.new(0, 30, 0, 30)
+CollapseBtn.Position = UDim2.new(1, -40, 0, 7)
+CollapseBtn.BackgroundTransparency = 1
+CollapseBtn.Text = "-"
+CollapseBtn.TextColor3 = Color3.fromRGB(160, 160, 170)
+CollapseBtn.Font = Enum.Font.GothamBold
+CollapseBtn.TextSize = 18
+CollapseBtn.Parent = MainFrame
+
 local Container = Instance.new("Frame")
 Container.Size = UDim2.new(1, -32, 1, -55)
 Container.Position = UDim2.new(0, 16, 0, 45)
@@ -54,6 +67,31 @@ Container.Parent = MainFrame
 
 local layout = Instance.new("UIListLayout", Container)
 layout.Padding = UDim.new(0, 8)
+
+-- COLLAPSE LOGIC
+CollapseBtn.MouseButton1Click:Connect(function()
+    isCollapsed = not isCollapsed
+    
+    local targetSize = isCollapsed and UDim2.new(0, 280, 0, 45) or UDim2.new(0, 280, 0, 280)
+    CollapseBtn.Text = isCollapsed and "+" or "-"
+    
+    -- Hide/Show the container smoothly
+    if not isCollapsed then
+        Container.Visible = true
+    end
+    
+    local tween = TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = targetSize
+    })
+    
+    tween:Play()
+    
+    tween.Completed:Connect(function()
+        if isCollapsed then
+            Container.Visible = false
+        end
+    end)
+end)
 
 -- TOGGLES FUNCTION
 local function createModernToggle(labelName, orderIndex, stateKey, callback)
